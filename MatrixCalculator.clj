@@ -34,6 +34,20 @@
     (catch IndexOutOfBoundsException _ nil))))
 
 
+(comment counts rows)
+(defn rows 
+  ([m] (rows m 0))
+  ([m v] (if (nil? (get-row m v)) v (rows m (+ v 1))))
+)
+
+
+(comment counts columns)
+(defn cols
+  ([m] (cols m 0))
+  ([m v] (if (nil? (get-col m v)) v (cols m (+ v 1))))
+)
+
+
 (comment calculate transpose of matrix)
 (defn transpose [m]
   (if (matrix? m)
@@ -48,14 +62,13 @@
   (if (and (not-empty v) (every? vector? v)) (vec (reduce #(map f %1 %2) v))))
   
 
- (comment turns a list of lists into a vector of vectors (for matFunc))
- (defn listVec [lst] (cons (vec (first lst)) (lazy-seq (listVec (rest lst)))))
-
-
 (comment need to check sizes!!)
 (comment element by element actions)
 (defn matFunc [f & m] 
-  (if (and (not-empty m) (every? matrix? m))  
+  (defn listVec "Turns a list of lists into a vector of vectors"
+     [lst] (cons (vec (first lst)) 
+                             (lazy-seq (listVec (rest lst)))))
+    (if (and (not-empty m) (every? matrix? m))  
        (let [lst (butlast(conj (apply vecFunc #(map f %1 %2) m) ()))]
           (vec(take (count (get-col (first m) 0)) (listVec lst)))))
 )
@@ -98,8 +111,8 @@
 (defn  scalarMul
    ([m i] (if(and (matrix? m) (number? i))
             (matFunc * m (vec 
-                  (take (count (get-col m 0))
-                     (scalarMat i (count (get-row m 0)))
+                  (take (rows m)
+                     (scalarMat i (cols m))
                      )))
             )
    )
@@ -108,6 +121,37 @@
                    (reduce scalarMul (scalarMul m i) more)))   
 )
  
+
+(comment add constant scalar to matrix)
+(comment all numbers lesser than 1 (including negatives) are added)
+(comment normally, but n>=1 are added using trampoline to show)
+(comment clojure's ability to recurse in different ways)
+(defn scalarAdd
+   ([m x] (trampoline(fn [] (scalarAdd m x (fn [m]
+     (let [y m]
+       (fn [z] (matFunc + z  (vec(take (rows y) (scalarMat 0.5 (cols y))))))))))))
+  
+   ([m x f] (if (< x 1)  
+      (matFunc + m  (vec(take (rows m) (scalarMat x (cols m)))))
+     (trampoline (fn [] ((def addScal (f m))
+     (scalarAdd (addScal m) (- x 1) f))))))
+)
+
+
+(comment need to sum current, and get sqrt somehow)
+(comment calls java's Math class)
+(defn norm2 [m]
+  (defn sumList "sums a list" [lst v] (cons v (lazy-seq (sumList (rest lst) (+ (first lst) v)))))
+  (if (matrix? m)
+      (java.lang.Math/sqrt (last (take (+ 1 (* (cols m) (rows m))) (sumList (flatten (matFunc * m m)) 0))))
+    )
+)
+
+
+(comment normalizes a matrix using norm2)
+(defn normalize [m] 
+  (scalarMul m (/ 1 (norm2 m)))
+ )
 
 
 
@@ -125,7 +169,7 @@
 
 (comment predicate, is a matrix square (num_rows==num_cols))
 (defn square? [m]
-     (and (matrix? m) (= (count (m 0)) (count m))))
+     (and (matrix? m) (= (rows m) (cols m))))
 
 
 (comment ???)
@@ -166,16 +210,6 @@
     (map vector_item m (repeat pred) (repeat j))))
 
 
-
-
-
-
-(comment need to sum current, and get sqrt somehow)
-(defn norm [m]
-  (if (matrix? m)
-    (matFunc * m m)
-  )
-)
   
   
  (comment This area is for testing!!!!)
@@ -205,7 +239,19 @@
 (transpose mat1)
 (vecFunc + (get-row mat1 1) (get-col mat1 2))
 (get-row mat1 5)
-(scalarMul mat1 4 2)
+(scalarMul mat1 2 4)
 (matMul s s)
-(norm mat1)
+(norm2 mat1)
 (matPrint (scalarMul mat1 4 0.5 1 -0.25 2))
+(scalarAdd I 15)
+(matFunc * mat1 mat1)
+(get (get (matFunc * mat1 mat1) 3) 1)
+(cols mat1)
+(matFunc + mat1 (vec(take (rows mat1) (scalarMat 1 (cols mat1)))))
+  (defn make-adder [m]
+    (let [y m]
+      (fn [z] (matFunc + z  (vec(take (rows y) (scalarMat 1 (cols y))))))))
+   (def addScal (make-adder I))
+(addScal I)
+(addScal (addScal I))
+(scalarMul mat1 0)
