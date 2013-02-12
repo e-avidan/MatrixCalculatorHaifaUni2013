@@ -1,4 +1,5 @@
-(ns MatrixCalculator)
+(ns MatrixCalculator.Functions)
+
 
 
 (comment predicate, is this a vector of vectors - a matrix?)
@@ -17,42 +18,43 @@
 (comment every function should be sent to this, for readability)
 (comment prints nil when done)
 (defn matPrint [m]
-     (print (apply str (interleave m (repeat "\n")))))
+  (print (apply str (interleave m (repeat "\n")))))
 
 
 (comment gets the i-th row of a matrix (starts from 0))
- (defn get-row [m i] 
+(defn get-row [m i] 
    (if (and (matrix? m) (number? i))
      (try (m i)
-     (catch IndexOutOfBoundsException e nil))))
+       (catch IndexOutOfBoundsException e nil))))
  
-
-(comment gets the j-th col of a matrix (starts from 0))
+ 
+ (comment gets the j-th col of a matrix (starts from 0))
 (defn get-col [m j] 
-  (if (and (matrix? m) (number? j)) (try
-    (map #(% j) m) (vec (map #(% j) m))
-    (catch IndexOutOfBoundsException _ nil))))
+  (if (and (matrix? m) (number? j))
+    (try
+      (map #(% j) m) (vec (map #(% j) m))
+      (catch IndexOutOfBoundsException _ nil))))
 
 
 (comment counts rows)
 (defn rows 
   ([m] (rows m 0))
   ([m v] (if (nil? (get-row m v)) v (rows m (+ v 1))))
-)
+  )
 
 
 (comment counts columns)
 (defn cols
   ([m] (cols m 0))
   ([m v] (if (nil? (get-col m v)) v (cols m (+ v 1))))
-)
+  )
 
 
 (comment calculate transpose of matrix)
 (defn transpose [m]
   (if (matrix? m)
     (vec (map get-col (repeat (count (m 0)) m) (iterate inc 0)))))
- 
+
 
 
 
@@ -60,18 +62,18 @@
 (comment element by element actions)
 (defn vecFunc [f & v]
   (if (and (not-empty v) (every? vector? v)) (vec (reduce #(map f %1 %2) v))))
-  
+
 
 (comment need to check sizes!!)
 (comment element by element actions)
 (defn matFunc [f & m] 
   (defn listVec "Turns a list of lists into a vector of vectors"
-     [lst] (cons (vec (first lst)) 
-                             (lazy-seq (listVec (rest lst)))))
-    (if (and (not-empty m) (every? matrix? m))  
-       (let [lst (butlast(conj (apply vecFunc #(map f %1 %2) m) ()))]
-          (vec(take (count (get-col (first m) 0)) (listVec lst)))))
-)
+    [lst] (cons (vec (first lst)) 
+                 (lazy-seq (listVec (rest lst)))))
+  (if (and (not-empty m) (every? matrix? m))  
+      (let [lst (butlast(conj (apply vecFunc #(map f %1 %2) m) ()))]
+         (vec(take (count (get-col (first m) 0)) (listVec lst)))))
+    )
 
 
 
@@ -83,18 +85,18 @@
 
 
 (comment multiply any number of matrices)
- (defn matMul 
+(defn matMul 
   ([] nil)
   ([m] m)
   ([m1 m2] (if (and (matrix? m1) (matrix? m2) 
                     (= (count (m1 0)) (count m2))) 
-     (let [tm2 (transpose m2)]
+             (let [tm2 (transpose m2)]
        (vec (map #(vec (map vecMul (repeat %) tm2)) m1)))))
   ([m1 m2 & more]
-   (if (and (every? matrix? more) (matrix? m1) (matrix? m2))
+    (if (and (every? matrix? more) (matrix? m1) (matrix? m2))
      (reduce matMul (matMul m1 m2) more)))
   ) 
-
+ 
  
  
  
@@ -105,11 +107,11 @@
  (comment creates cols of vectors of same value (for scalarMul))
  (defn scalarMat [i r] (cons (vec (take r (scalarVec i))) 
                              (lazy-seq (scalarMat i r))))
-
-
+ 
+ 
 (comment multiply a matrix by any number of scalars)
 (defn  scalarMul
-   ([m i] (if(and (matrix? m) (number? i))
+  ([m i] (if(and (matrix? m) (number? i))
             (matFunc * m (vec 
                   (take (rows m)
                      (scalarMat i (cols m))
@@ -127,9 +129,9 @@
 (comment normally, but n>=1 are added using trampoline to show)
 (comment clojure's ability to recurse in different ways)
 (defn scalarAdd
-   ([m x] (trampoline(fn [] (scalarAdd m x (fn [m]
+  ([m x] (trampoline(fn [] (scalarAdd m x (fn [m]
      (let [y m]
-       (fn [z] (matFunc + z  (vec(take (rows y) (scalarMat 0.5 (cols y))))))))))))
+       (fn [z] (if (matrix? z) (matFunc + z  (vec(take (rows y) (scalarMat 0.5 (cols y)))))))))))))
   
    ([m x f] (if (< x 1)  
       (matFunc + m  (vec(take (rows m) (scalarMat x (cols m)))))
