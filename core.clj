@@ -1,13 +1,12 @@
 (ns MatrixCalculator.core
-  (:use MatrixCalculator.GUI))
+  (:use MatrixCalculator.GUI)
+  (import javax.swing.SwingUtilities)
+  )
 
 (defn -main
-  "I don't do a whole lot."
+  "I don't do a whole lot. No really, I just call the GUI function.
+   You should name her main!"
   [&args]
-  (
-    (GUI)
-    (def mat4 [[5 5 5] [3 3 3] [1 1 1]])
-    (matFunc + mat4)
-    )
-)
+  ;invokeLater makes swing thread safe!
+  (SwingUtilities/invokeLater gui-main))
 

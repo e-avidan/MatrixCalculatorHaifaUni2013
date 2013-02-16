@@ -2,7 +2,7 @@
     (:import 
     (javax.swing JPanel, JFrame, JButton, JTextField,
                  JLabel, JComboBox)
-    (java.awt.event KeyEvent, KeyAdapter)
+    (java.awt.event KeyEvent, KeyAdapter, ActionListener)
     (java.awt GridLayout, Color, Dimension, BorderLayout)
     (java.text NumberFormat)))
 
@@ -16,4 +16,15 @@
   (let [listener (proxy [KeyAdapter] []
                    (keyReleased [event] (apply f event args)))]
     (.addKeyListener component listener)
+    listener))
+
+;another contrib function, not modified this time.
+(defn add-action-listener
+  "Adds an ActionLister to component. When the action fires, f will be
+  invoked with the event as its first argument followed by args.
+  Returns the listener."
+  [component f & args]
+  (let [listener (proxy [ActionListener] []
+                   (actionPerformed [event] (apply f event args)))]
+    (.addActionListener component listener)
     listener))
