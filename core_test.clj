@@ -141,10 +141,9 @@
   ;defintion
   (is (= (normalize mat1) (scalarMul mat1 (/ 1 (norm2 mat1)))))
   ;norm = 1 after normalization
-  (is (= 1.0 (norm2 (normalize mat1)) (norm2 (normalize mat2))))
+  (is (== 1 (norm2 (normalize mat1)) (norm2 (normalize mat2))))
   (is (= (norm2 (normalize mat3)) (norm2 (normalize mat4))))
   )
-
 (deftest test-det
   ;det(A)^k=det(A^k)
   ;after 4 there is numeric deviation in the LSBs
@@ -160,7 +159,7 @@
   (is (= (det (scalarMul mat3 3)) (* (det mat3) (expt 3 5))))
   (is (= (det (scalarMul mat4 3)) (* (det mat4) (expt 3 5))))
   ;det(I) = 1
-  (is (= (det I) 1.0))
+  (is (== (det I) 1))
   ;non-square
   (is (= nil (det mat1)))
   (is (= nil (det mat2)))

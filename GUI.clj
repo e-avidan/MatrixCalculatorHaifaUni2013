@@ -3,7 +3,7 @@
   (:use MatrixCalculator.Contributed)
   (:import 
     (javax.swing JPanel, JFrame, JButton, JTextField,
-                 JLabel, JComboBox)
+                 JLabel, JComboBox, JOptionPane)
     (java.awt.event KeyEvent, KeyAdapter)
     (java.awt GridLayout, Color, Dimension, BorderLayout)
     (java.text NumberFormat)
@@ -15,17 +15,18 @@
   ;if a number is extractable from the start, even if non-numeric
   ;characters appear later, it is extracted, so slips on the keyboard
   ;are forgiven
-(defn toDouble [str]
+(defn toDouble [^java.lang.String str]
   (
     try (.parse (NumberFormat/getNumberInstance) str)
     (catch Exception e nil))
   )  
 
+
 (defn gui-main "the GUI" [] (         
   (def frame (JFrame. "Matrix Calculator Motherfucker!"))
   
   ;control variables
-  ; :d-destination (lower 2) matrices, :s-source (upper 2) matrices
+  ; :d-destination center matrix and memory, :s-source left and right matrices
   ; :dst :src :act :scalar - current actions on panel 1 - index
   ; :k- keywords
   ; :r :c - dimensions of the source matrices, respectively
@@ -42,46 +43,43 @@
                :d1 :rd1 :cd1 0 0 0 0 0 0 
                nil nil 6 2 5 6
                nil nil 0 0 0 0
-               nil 0 0]))) 
+               nil 0 0])))                
+
   ;status of GUI input and output
   ;for the dst, we need to set more than the constructor allows
   ;and we define a variable number of JTextFields so we need this
-   (def txtDst1 (ref {}))
-   (def txtDst2 (ref {}))
-   (def txtSrc1 (ref {}))
-   (def txtSrc2 (ref {}))
-   
-   ;reset the source matrices (dst are not yet made)
-   (dosync 
-     (let [r (java.util.Random.)]
-       (alter vars assoc :r1 (+ (mod (.nextInt r) 9) 1))
-       (alter vars assoc :c1 (+ (mod (.nextInt r) 9) 1))
-       (alter vars assoc :r2 (+ (mod (.nextInt r) 9) 1))
-       (alter vars assoc :c2 (+ (mod (.nextInt r) 9) 1))
-       )
-     ) 
-   (dosync 
-	   (alter vars assoc :s1
-	     (vec(take (vars :c1)
-	               (scalarMat 2 (vars :r1))))))
-
-   (dosync 
-	   (alter vars assoc :s2
-	     (vec(take (vars :c2)
-	               (scalarMat 3 (vars :r2))))))
-   
+  (def txtDst1 (ref {}))
+  (def txtSrc2 (ref {}))
+  (def txtSrc1 (ref {}))
+  
+  ;reset the source matrices with random data
+  (dosync 
+    (let [r (java.util.Random.)]
+      (alter vars assoc :r1 (+ (mod (.nextInt r) 9) 1))
+      (alter vars assoc :c1 (+ (mod (.nextInt r) 9) 1))
+      (alter vars assoc :r2 (+ (mod (.nextInt r) 9) 1))
+      (alter vars assoc :c2 (+ (mod (.nextInt r) 9) 1))
+      (alter vars assoc :s1
+             (vec(take (vars :r1)
+                       (scalarMat (mod (.nextInt r) 9) (vars :c1)))))
+      (alter vars assoc :s2
+             (vec(take (vars :r2)
+                       (scalarMat (mod (.nextInt r) 9) (vars :c2)))))
+      )
+    ) 
+  
   ;window settings
   (def x 800)
   (def y 480)
-	(.setSize frame x y)
+  (.setSize frame x y)
   ;so the user doesn't spoil his experience...
   ;BorderLayout isn't smart enough, but since GUI isn't a must
   ;we preffered not to delve into GridBagLayout this time..
   (.setMinimumSize frame (Dimension. x y)) 
   (.setLayout frame (BorderLayout. 0 0))
   (.setLocationRelativeTo frame (.getRootPane frame))
-	(.setVisible frame true)
- 
+  (.setVisible frame true)
+  
   ;panels inside the window
   ;control panel
   (def panel1 (JPanel.))
@@ -89,55 +87,49 @@
   (def panel2 (ref (JPanel.)))
   ;source matrix 2
   (def panel3 (ref (JPanel.)))
-
+  
   ;destination matrices panels
   (def w (ref (JPanel.)))
-  (def e (ref (JPanel.)))
   
   ;central panel - has all 4 src and dst matrices, for equal stretch
   (def panel4 (JPanel.))
   
-    ;window populating
+  ;window populating
   (.add frame panel1 BorderLayout/NORTH)
-  (.add panel4 (deref panel2))
-  (.add panel4 (deref panel3))
-  (.add panel4 (deref w))
-  (.add panel4 (deref e))
+  (.add panel4 @panel2)
+  (.add panel4 @w)
+  (.add panel4 @panel3)
   (.add frame panel4 BorderLayout/CENTER)
   
   (def p1 80)
   (.setPreferredSize panel1 (Dimension. x p1))
-  (.setPreferredSize (deref panel2) (Dimension. (/ x 2) (/ (- y p1) 2)))
-  (.setPreferredSize (deref panel3) (Dimension. (/ x 2) (/ (- y p1) 2)))
-  (.setPreferredSize (deref w) (Dimension. (/ x 2) (/ (- y p1) 2)))
-  (.setPreferredSize (deref e) (Dimension. (/ x 2) (/ (- y p1) 2)))
+  (.setPreferredSize @panel2 (Dimension. (/ x 3) (- y p1)))
+  (.setPreferredSize @panel3 (Dimension. (/ x 3) (- y p1)))
+  (.setPreferredSize @w (Dimension. (/ x 3) (- y p1)))
   
   ;so it looks good and you can see the different areas
   (.setBackground panel1 (Color. 0, 255, 0))
   (.setBackground (deref panel2) (Color. 255, 0, 0))
   (.setBackground (deref panel3) (Color. 0, 0, 200))
   (.setBackground (deref w) (Color. 250, 200, 0))
-  (.setBackground (deref e) (Color. 150, 00, 150))
-    
-   ;textfields for matrix size input
+  
+  ;textfields for matrix size input
   (def r1 (ref (JTextField. (.toString (vars :r1)))))
   (def c1 (ref (JTextField. (.toString (vars :c1)))))
   (def r2 (ref (JTextField. (.toString (vars :r2)))))
   (def c2 (ref (JTextField. (.toString (vars :c2)))))
   
-  ;reference for changeSize and changeScalar.. clojrue allows this so why not..
-  ;it's updated upon entrance to the listener so access is not an
-  ;issue
-  (def d (ref nil))
+  ;dynamic variable for parsing input
+  (def ^:dynamic d nil)
   
   ;combo boxes to choose actions
   (def ComboDst (JComboBox. 
                   (to-array 
-                    (list "LeftOutput" "RightOutput"))))
+                    (list "Output" "Memory"))))
   (def ComboSrc1 (JComboBox. 
                    (to-array
                      (list "" "LeftInput" "RightInput" 
-                           "LeftOutput" "RightOutput"))))
+                           "Output" "Memory"))))
   (def ComboAct (JComboBox.
                   (to-array 
                     (list "" "+" "-" ".*" "./" ".^" "*"
@@ -147,7 +139,7 @@
   ;scalarInput is here for syntax and meaning, it's logical to humans
   (def ComboSrc2 (JComboBox. (to-array
                                (list "" "LeftInput" "RightInput" 
-                                     "LeftOutput" "RightOutput" 
+                                     "Output" "Memory" 
                                      "Scalar" ))))
   (def Scalar (JTextField. (.toString (vars :scalar))))
   (.setPreferredSize Scalar (Dimension. 30 30))
@@ -155,7 +147,7 @@
   
   ;; combo box's listeners
   ;updates vars when normal combo boxes change
-  (defn comboUpdate [e component str]
+  (defn- comboUpdate [^java.awt.Event e ^javax.swing.JComboBox component ^java.lang.String str]
     (dosync 
       (alter vars assoc (keyword str) 
              (.getSelectedIndex component))
@@ -259,11 +251,11 @@
       )
     )
   
-  
   ;element by element actions
-  (defn eleByele [f]                     
+  ;is only called inside dosync so it's okay!
+  (defn- eleByele [f]                     
     (if (and (= (vars (vars :kr1)) (vars (vars :kr2)))
-      (= (vars (vars :kc1)) (vars (vars :kc2))))
+             (= (vars (vars :kc1)) (vars (vars :kc2))))
       (
         ;change vars
         (alter vars assoc (vars :kd)
@@ -276,10 +268,11 @@
   
   
   ;updates vars when scalar box is changed
-  (defn changeScalar [e]
-    (dosync (ref-set d (toDouble (.getText Scalar)))
+  (defn- changeScalar [^java.awt.Event e]
+    (binding [d (toDouble (.getText Scalar))]
+      (dosync 
         (try
-          (if (nil? (deref d))      
+          (if (nil? d)      
             (;restore val - is not parsable  
               (.setText (deref r1) (.toString ((deref vars) :r1)))
               (.setText (deref c1) (.toString ((deref vars) :c1)))
@@ -290,7 +283,7 @@
             (
               ;; is parseable
               ;set new val
-              (alter vars assoc :scalar (deref d))
+              (alter vars assoc :scalar d)
               ;restore fields
               (.setText (deref r1) (.toString ((deref vars) :r1)))
               (.setText (deref c1) (.toString ((deref vars) :c1)))
@@ -302,10 +295,11 @@
           ;helps!
           (catch Exception ex nil))
         ) 
+      )
     )
   
-  (defn commitAction [e] 
-    (dosync 
+  (defn- commitAction [^java.awt.Event e] 
+   (dosync 
       (try
         (
           (.setText (deref r1) (.toString ((deref vars) :r1)))
@@ -325,7 +319,7 @@
               )
             )
           ;;element by element dual matrix operation
-          ;addition
+          ;addition         
           (if (= (vars :act) 1) 
             (eleByele +))
           
@@ -355,7 +349,7 @@
           
           ;;scalar (and possibly matrix) operations
           ;multiplication
-          (if (= (vars :act) 6) 
+          (if (= (vars :act) 6)  
             (if (= (vars :src2) 5)
               ;scalar
               (
@@ -413,7 +407,7 @@
                        (matrix(vector(norm2  (vars (vars :ks2))))))
                 (alter vars assoc (vars :krd) 1)
                 (alter vars assoc (vars :kcd) 1)
-                )
+                )    
               )
             )
           
@@ -423,25 +417,25 @@
               (
                 ;change vars
                 (alter vars assoc (vars :kd)
-                       (matrix (vector (det  (vars (vars :ks2)))))) 
+                       (matrix (vector (det  (vars (vars :ks2))))))
                 (alter vars assoc (vars :krd) 1)
-                (alter vars assoc (vars :kcd) 1)
+                (alter vars assoc (vars :kcd) 1) 
                 )
               )
             )
           
           ;Normalize
-          (if (= (vars :act) 11) 
-            (if (and (= (vars :src1) 0) (> (vars :src2) 0) (< (vars :src2) 5))
-              (
-                ;change vars
-                (alter vars assoc (vars :kd)
-                       (normalize (vars (vars :ks2))))
-                (alter vars assoc (vars :krd) (vars (vars :kr2)))
-                (alter vars assoc (vars :kcd) (vars (vars :kc2)))
+          (if (= (vars :act) 11)                       
+              (if (and (= (vars :src1) 0) (> (vars :src2) 0) (< (vars :src2) 5))
+                (
+                  ;change vars
+                  (alter vars assoc (vars :kd)
+                         (normalize (vars (vars :ks2))))
+                  (alter vars assoc (vars :krd) (vars (vars :kr2)))
+                  (alter vars assoc (vars :kcd) (vars (vars :kc2)))
+                  )
                 )
               )
-            )
           
           ;Transpose
           (if (= (vars :act) 12) 
@@ -450,12 +444,16 @@
                 ;change vars
                 (alter vars assoc (vars :kd)
                        (transpose  (vars (vars :ks2))))
-                (alter vars assoc (vars :krd) (vars (vars :kc2)))
-                (alter vars assoc (vars :kcd) (vars (vars :kr2)))
+                (binding [d (vars (vars :kc2))] 
+                  (
+                    (alter vars assoc (vars :kcd) (vars (vars :kr2)))
+                    (alter vars assoc (vars :krd) d)
+                    )
+                  )
                 )
-              )
+              )    
             )
-               
+      
           (if (= (vars :dst) 0)
             (
               (.removeAll (deref w)) 
@@ -474,26 +472,8 @@
                   (catch Exception ex nil)
                   )
                 )
-              )
-           (
-             (.removeAll (deref e)) 
-             (.setLayout (deref e) (GridLayout. (vars :rd2) (vars :cd2)))
-             (ref-set txtDst2 {})
-             (dotimes [n (* (vars :rd2) (vars :cd2))] 
-               (try
-                 ((alter txtDst2 assoc (keyword (.toString n))
-                         (JTextField. (.toString (get (vec (flatten (vars :d2))) n))))
-                   (.setEditable (txtDst2 (keyword (.toString n))) false)
-                   (.setHorizontalAlignment 
-                     (txtDst2 (keyword (.toString n))) JTextField/CENTER)
-                   (.setCaretPosition (txtDst2 (keyword (.toString n))) 0)
-                   (.add (deref e) (txtDst2 (keyword (.toString n))))
-                   (.revalidate panel4))
-                 (catch Exception ex nil)
-                 )
-               )
-             )
-           )
+              )      
+            )      
           )
         (catch Exception ex nil)
         )
@@ -511,7 +491,7 @@
   ;layouts of main panels
   (.setLayout (deref panel2)(GridLayout. (vars :r1) (vars :c1)) )
   (.setLayout (deref panel3) (GridLayout. (vars :r2) (vars :c2)))
-  (.setLayout panel4 (GridLayout. 2 2))
+  (.setLayout panel4 (GridLayout. 1 3))
     
       ;populating top control panel
   (.add panel1 (JLabel. "rows_mat1:"))
@@ -536,94 +516,148 @@
   (.add panel1 (JLabel. "cols_mat2:"))
   (.add panel1 (deref c2))
   
-  (defn changeSize "change size of matrix listener" [e component str] 
-    (if (= (.getKeyCode e) (KeyEvent/VK_ENTER))  
-      (dosync (ref-set d (toDouble (.getText component)))
+  ;listener to change source matrix cell
+  ;n is number of cell in matrix, ks is which src matrix
+  (defn- changeCell [e component n ks] 
+    (binding [d (toDouble (.getText component))]
+      (dosync     
         (try
-          (if (nil? (deref d))
-	         (
-	           ;restore val - is not parsable
-	           (.setText (deref r1) (.toString ((deref vars) :r1)))
-            (.setText (deref c1) (.toString ((deref vars) :c1)))
-            (.setText (deref r2) (.toString ((deref vars) :r2)))
-            (.setText (deref c2) (.toString ((deref vars) :c2)))
-            (.setText Scalar (.toString ((deref vars) :scalar)))
-	           )
-	        
-		        ;is parseable
-		        (if (> (int (deref d)) 0)
-		          (
-                ;needed!
-                (if (= str "null")
-                   (alter vars assoc :r1 (deref d)))
-		            (if (= str "r1" )
-		              (alter vars assoc :r1 (deref d)))
-		            (if (= str "c1" )
-		              (alter vars assoc :c1 (deref d)))
-		            (if (= str "r2" )
-		              (alter vars assoc :r2 (deref d)))
-		            (if (= str "c2" )
-		              (alter vars assoc :c2 (deref d)))
-              
+          (if (nil? d)    
+            (;restore val - is not parsable  
               (.setText (deref r1) (.toString ((deref vars) :r1)))
               (.setText (deref c1) (.toString ((deref vars) :c1)))
               (.setText (deref r2) (.toString ((deref vars) :r2)))
               (.setText (deref c2) (.toString ((deref vars) :c2)))
               (.setText Scalar (.toString ((deref vars) :scalar)))
-            
-		            (if (or (= str "r1") (= str "c1")) 
-	               	;first src
-		              (alter vars assoc :s1
-		                     (vec(take ((deref vars) :c1)
-		                               (scalarMat 0 ((deref vars) :r1))))) 
-		              ;second src
-		              (alter vars assoc :s2
-		                     (vec(take ((deref vars) :c2)
-		                               (scalarMat 0 ((deref vars) :r2)))))
-		              )  
-            
-              (if (or (= str "r1") (= str "c1")) 
-	               ;first src                         
-                  (
-                    (.removeAll (deref panel2))
-                    (.setLayout (deref panel2) (GridLayout. ((deref vars) :r1) ((deref vars) :c1))) 
-                    (ref-set txtSrc1 {:count 0})
-                    (dotimes [n (* ((deref vars) :r1) ((deref vars) :c1))] 
-                      (alter txtSrc1 assoc (keyword (.toString n)) (JTextField. "0"))
-                        (alter txtSrc1 assoc :count (inc((deref txtSrc1) :count)))
-                        (.setHorizontalAlignment 
-                          ((deref txtSrc1) (keyword (.toString n))) JTextField/CENTER)
-                        (.add (deref panel2) ((deref txtSrc1) (keyword (.toString n)))))
-                    (.revalidate panel1)
-                    )
-                    ;second src
-                  (
-                    (.removeAll (deref panel3))
-                    (.setLayout (deref panel3) (GridLayout. ((deref vars) :r2) ((deref vars) :c2))) 
-                    (ref-set txtSrc2 {:count 0})
-                    (dotimes [n (* ((deref vars) :r2) ((deref vars) :c2))] 
-                      (alter txtSrc2 assoc (keyword (.toString n)) (JTextField. "0"))
-                        (alter txtSrc2 assoc :count (inc((deref txtSrc2) :count)))
-                        (.setHorizontalAlignment 
-                          ((deref txtSrc2) (keyword (.toString n))) JTextField/CENTER)
-                        (.add (deref panel3) ((deref txtSrc2) (keyword (.toString n)))))
-                    (.revalidate panel1)
-                    )                    
-	               )
-		            )
-		          ;non-positive value
-		          (
-		            (.setText (deref r1) (.toString ((deref vars) :r1)))
-	              (.setText (deref c1) (.toString ((deref vars) :c1)))
-	              (.setText (deref r2) (.toString ((deref vars) :r2)))
-	              (.setText (deref c2) (.toString ((deref vars) :c2)))
-	              (.setText Scalar (.toString ((deref vars) :scalar)))
-		            )
-		          )
-		        )
+              (if (= ks "s1")
+                (.setText component
+                  (.toString (get (get-row (vars :s1) (quot n (vars :c1))) (rem n (vars :c1)))))
+                (.setText component
+                  (.toString (get (get-row (vars :s2) (quot n (vars :c2))) (rem n (vars :c2)))))
+                )  
+              )
+            (
+              ;; is parseable
+              ;set new val     
+              (try(if (= ks "s1")
+                    (alter vars assoc :s1 (setInd (vars :s1) n d))
+                    (alter vars assoc :s2 (setInd (vars :s2) n d))
+                    )(catch Exception exe nil))
+              ;restore fields
+              (.setText (deref r1) (.toString ((deref vars) :r1)))
+              (.setText (deref c1) (.toString ((deref vars) :c1)))
+              (.setText (deref r2) (.toString ((deref vars) :r2)))
+              (.setText (deref c2) (.toString ((deref vars) :c2)))
+              (.setText Scalar (.toString ((deref vars) :scalar)))
+              (if (= ks "s1")
+                (.setText component
+                  (.toString (get (get-row (vars :s1) (quot n (vars :c1))) (rem n (vars :c1)))))
+                (.setText component
+                  (.toString (get (get-row (vars :s2) (quot n (vars :c2))) (rem n (vars :c2)))))
+                )  
+              )        
+            )
           ;helps!
           (catch Exception ex nil))
         ) 
+      )
+    )
+  
+  ;listener to change source matrix sizes
+  (defn- changeSize "change size of matrix listener" [^java.awt.Event e ^javax.swing.JTextField component ^java.lang.String str] 
+    (if (= (.getKeyCode e) (KeyEvent/VK_ENTER))  
+      (binding [d (toDouble (.getText component))]
+        (dosync 
+          (try
+            (if (nil? d)
+              (
+                ;restore val - is not parsable
+                (.setText (deref r1) (.toString ((deref vars) :r1)))
+                (.setText (deref c1) (.toString ((deref vars) :c1)))
+                (.setText (deref r2) (.toString ((deref vars) :r2)))
+                (.setText (deref c2) (.toString ((deref vars) :c2)))
+                (.setText Scalar (.toString ((deref vars) :scalar)))
+                )
+              
+              ;is parseable
+              (if (> (int d) 0)
+                (
+                  ;needed!
+                  (if (= str "null")
+                    (alter vars assoc :r1 d))
+                  (if (= str "r1" )
+                    (alter vars assoc :r1 d))
+                  (if (= str "c1" )
+                    (alter vars assoc :c1 d))
+                  (if (= str "r2" )
+                    (alter vars assoc :r2 d))
+                  (if (= str "c2" )
+                    (alter vars assoc :c2 d))
+                  
+                  (.setText (deref r1) (.toString ((deref vars) :r1)))
+                  (.setText (deref c1) (.toString ((deref vars) :c1)))
+                  (.setText (deref r2) (.toString ((deref vars) :r2)))
+                  (.setText (deref c2) (.toString ((deref vars) :c2)))
+                  (.setText Scalar (.toString ((deref vars) :scalar)))
+                  
+                  (if (or (= str "r1") (= str "c1")) 
+                    ;first src
+                    (alter vars assoc :s1
+                           (vec(take ((deref vars) :c1)
+                                     (scalarMat 0 ((deref vars) :r1))))) 
+                    ;second src
+                    (alter vars assoc :s2
+                           (vec(take ((deref vars) :c2)
+                                     (scalarMat 0 ((deref vars) :r2)))))
+                    )  
+                  
+                  (if (or (= str "r1") (= str "c1")) 
+                    ;first src                         
+                    (
+                      (.removeAll (deref panel2))
+                      (.setLayout (deref panel2) (GridLayout. ((deref vars) :r1) ((deref vars) :c1))) 
+                      (ref-set txtSrc1 {})
+                      (dotimes [n (* ((deref vars) :r1) ((deref vars) :c1))] 
+                        (alter txtSrc1 assoc (keyword (.toString n)) (JTextField. "0"))
+                        (.setHorizontalAlignment 
+                          ((deref txtSrc1) (keyword (.toString n))) JTextField/CENTER)
+                        (.setCaretPosition (txtSrc1 (keyword (.toString n))) 0)
+                        (add-key-released-listener ((deref txtSrc1) (keyword (.toString n)))
+                                                   changeCell ((deref txtSrc1) (keyword (.toString n))) n "s1")
+                        (.add (deref panel2) ((deref txtSrc1) (keyword (.toString n)))))
+                      (.revalidate panel1)
+                      )
+                    ;second src
+                    (
+                      (.removeAll (deref panel3))
+                      (.setLayout (deref panel3) (GridLayout. ((deref vars) :r2) ((deref vars) :c2))) 
+                      (ref-set txtSrc2 {})
+                      (dotimes [n (* ((deref vars) :r2) ((deref vars) :c2))] 
+                        (alter txtSrc2 assoc (keyword (.toString n)) (JTextField. "0"))
+                        (.setHorizontalAlignment 
+                          ((deref txtSrc2) (keyword (.toString n))) JTextField/CENTER)
+                        (.setCaretPosition (txtSrc2 (keyword (.toString n))) 0)
+                        (add-key-released-listener ((deref txtSrc2) (keyword (.toString n)))
+                                                   changeCell ((deref txtSrc2) (keyword (.toString n))) n "s2")
+                        (.add (deref panel3) ((deref txtSrc2) (keyword (.toString n)))))
+                      (.revalidate panel1)
+                      )                    
+                    )
+                  )
+                ;non-positive value
+                (
+                  (.setText (deref r1) (.toString ((deref vars) :r1)))
+                  (.setText (deref c1) (.toString ((deref vars) :c1)))
+                  (.setText (deref r2) (.toString ((deref vars) :r2)))
+                  (.setText (deref c2) (.toString ((deref vars) :c2)))
+                  (.setText Scalar (.toString ((deref vars) :scalar)))
+                  )
+                )
+              )
+            ;helps!
+            (catch Exception ex nil))
+          )
+        )
       ) 
     )  
   
@@ -637,15 +671,18 @@
   (.setPreferredSize (deref r2) (Dimension. 30 30))
   (.setPreferredSize (deref c2) (Dimension. 30 30))
   
-  
   ;populate source 1 - needed for alignment
   (dotimes [n (* (vars :r1) (vars :c1))] 
     (dosync
-      (alter txtSrc1 assoc (keyword (.toString n)) (JTextField.
-                                                     (.toString (get (get-col (vars :s1) (quot n (vars :c1))) (rem n (vars :c1))))))
+      (alter txtSrc1 assoc
+             (keyword (.toString n)) (JTextField.
+             (.toString (get (get-row (vars :s1) (quot n (vars :c1))) 
+                             (rem n (vars :c1))))))
       (.setHorizontalAlignment 
         ((deref txtSrc1) (keyword (.toString n))) JTextField/CENTER)
       (.setCaretPosition (txtSrc1 (keyword (.toString n))) 0)
+      (add-key-released-listener ((deref txtSrc1) (keyword (.toString n)))
+                                 changeCell ((deref txtSrc1) (keyword (.toString n))) n "s1")
       (.add (deref panel2) ((deref txtSrc1) (keyword (.toString n)))))
     )
    
@@ -653,13 +690,17 @@
   (dotimes [n (* (vars :r2) (vars :c2))] 
     (dosync
       (alter txtSrc2 assoc (keyword (.toString n)) (JTextField.
-                                                     (.toString (get (get-col (vars :s2) (quot n (vars :c2))) (rem n (vars :c2))))))
+             (.toString (get (get-row (vars :s2) (quot n (vars :c2))) 
+                             (rem n (vars :c2))))))
       (.setHorizontalAlignment 
         (txtSrc2 (keyword (.toString n))) JTextField/CENTER)
       (.setCaretPosition (txtSrc2 (keyword (.toString n))) 0)
+      (add-key-released-listener ((deref txtSrc2) (keyword (.toString n)))
+                                 changeCell ((deref txtSrc2) (keyword (.toString n))) n "s2")
       (.add (deref panel3) (txtSrc2 (keyword (.toString n)))))
     )
   (.revalidate panel1)
  ))
 
 (try (gui-main)(catch Exception ex nil))
+
