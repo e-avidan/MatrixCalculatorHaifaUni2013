@@ -60,11 +60,9 @@
       (alter vars assoc :r2 (+ (mod (.nextInt r) 9) 1))
       (alter vars assoc :c2 (+ (mod (.nextInt r) 9) 1))
       (alter vars assoc :s1
-             (vec(take (vars :r1)
-                       (scalarMat (mod (.nextInt r) 9) (vars :c1)))))
+             (scalarMat (mod (.nextInt r) 9) (vars :c1) (vars :r1)))
       (alter vars assoc :s2
-             (vec(take (vars :r2)
-                       (scalarMat (mod (.nextInt r) 9) (vars :c2)))))
+             (scalarMat (mod (.nextInt r) 9) (vars :c2) (vars :r2)))
       )
     ) 
   
@@ -389,8 +387,8 @@
               (
                 ;change vars
                 (alter vars assoc (vars :kd)
-                       (take (vars (vars :kc1)) 
-                             (scalarMat  (vars :scalar) (vars (vars :kr1))))) 
+                       (scalarMat  (vars :scalar)
+                                   (vars (vars :kc1)) (vars (vars :kr1)))) 
                 (alter vars assoc (vars :krd) (vars (vars :kr1)))
                 (alter vars assoc (vars :kcd) (vars (vars :kc1)))
                 )
@@ -603,12 +601,10 @@
                   (if (or (= str "r1") (= str "c1")) 
                     ;first src
                     (alter vars assoc :s1
-                           (vec(take ((deref vars) :c1)
-                                     (scalarMat 0 ((deref vars) :r1))))) 
+                           (scalarMat 0 (@vars :c1) (@ vars :r1)))
                     ;second src
                     (alter vars assoc :s2
-                           (vec(take ((deref vars) :c2)
-                                     (scalarMat 0 ((deref vars) :r2)))))
+                           (scalarMat 0 (@vars :c2) (@ vars :r2)))
                     )  
                   
                   (if (or (= str "r1") (= str "c1")) 
