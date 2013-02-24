@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Thu Feb 21 05:35:26 IST 2013
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=MatrixCalculator_fat.jar
+manifest.mergeall=true
+manifest.mainclass=
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=
+includes=
